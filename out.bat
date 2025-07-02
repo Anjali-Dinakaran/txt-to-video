@@ -1,0 +1,1 @@
+python finetunev3.py  --data_dir ./videos --caption_file ./captions.json --output_dir ./outputs --batch_size 2 --epochs 10 --learning_rate 1e-4 --video_length 16 --resolution 256 --num_workers 2 --log_every 10 --save_every 100

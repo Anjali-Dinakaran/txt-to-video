@@ -1,0 +1,209 @@
+# Text-to-Video Fine-tuning Project Setup
+
+## Requirements
+
+Create a `requirements.txt` file with the following dependencies:
+
+```
+torch>=2.0.0
+torchvision>=0.15.0
+diffusers>=0.24.0
+transformers>=4.30.0
+accelerate>=0.20.0
+opencv-python>=4.8.0
+Pillow>=9.5.0
+numpy>=1.24.0
+tqdm>=4.65.0
+safetensors>=0.3.1
+xformers>=0.0.20
+```
+
+## Installation Steps
+
+1. **Create a Python environment:**
+```bash
+conda create -n text2video python=3.9
+conda activate text2video
+```
+
+2. **Install PyTorch (with CUDA support):**
+```bash
+# For CUDA 11.8
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# For CUDA 12.1
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# For CPU only
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+```
+
+3. **Install other dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+## Dataset Preparation
+
+1. **Create directory structure:**
+```
+project/
+├── data/
+│   ├── videos/          # Put your 50 videos here
+│   └── captions.json    # Video captions file
+├── checkpoints/         # Model checkpoints will be saved here
+└── text2video.py        # Main training script
+```
+
+2. **Prepare your captions file (`data/captions.json`):**
+```json
+{
+  "video1.mp4": "A cat playing with a ball in the garden",
+  "video2.mp4": "A person walking in the rain",
+  "video3.mp4": "Sunset over the ocean with waves",
+  "video4.mp4": "Children playing in a playground",
+  "video5.mp4": "A dog running through a field",
+  ...
+}
+```
+
+3. **Video format requirements:**
+   - Resolution: 512x512 pixels
+   - Frame rate: 24 fps
+   - Format: MP4, AVI, or MOV
+   - Duration: Any length (will be sampled to 16 frames)
+
+## Usage Instructions
+
+### 1. Setup Dataset Structure
+```bash
+python text2video.py --mode setup
+```
+
+### 2. Start Training
+```bash
+# Basic training
+python text2video.py --mode train
+
+# Advanced training with custom parameters
+python text2video.py --mode train \
+    --data_dir data/videos \
+    --caption_file data/captions.json \
+    --batch_size 1 \
+    --epochs 100 \
+    --learning_rate 1e-5 \
+    --output_dir ./checkpoints
+```
+
+### 3. Generate Videos
+```bash
+# Generate a video from text prompt
+python text2video.py --mode generate \
+    --model_path ./checkpoints/final/unet \
+    --prompt "A beautiful sunset over mountains" \
+    --output_video generated_video.mp4 \
+    --num_frames 16
+```
+
+## Training Parameters Explanation
+
+- `--batch_size`: Number of videos processed together (keep at 1 for 512x512 videos due to memory)
+- `--epochs`: Number of training epochs (100 is recommended for 50 videos)
+- `--learning_rate`: Learning rate (1e-5 is good for fine-tuning)
+- `--video_length`: Number of frames per video (16 frames = ~0.67 seconds at 24fps)
+- `--save_steps`: Save checkpoint every N steps
+- `--warmup_steps`: Number of warmup steps for learning rate scheduler
+
+## Memory Requirements
+
+- **Minimum**: 12GB VRAM (RTX 3060 12GB or better)
+- **Recommended**: 24GB VRAM (RTX 4090, A6000, etc.)
+- **RAM**: 32GB system RAM recommended
+
+## Memory Optimization Tips
+
+If you encounter CUDA out of memory errors:
+
+1. **Reduce batch size to 1**
+2. **Enable gradient checkpointing** (already enabled in code)
+3. **Use mixed precision training:**
+```bash
+python text2video.py --mode train --mixed_precision
+```
+
+4. **Reduce video length:**
+```bash
+python text2video.py --mode train --video_length 8
+```
+
+5. **Use CPU offloading for generation:**
+```bash
+python text2video.py --mode generate --device cpu
+```
+
+## Expected Training Time
+
+- **RTX 4090**: ~2-3 hours for 100 epochs with 50 videos
+- **RTX 3080**: ~4-6 hours for 100 epochs with 50 videos
+- **CPU only**: Not recommended (very slow)
+
+## Troubleshooting
+
+### Common Issues:
+
+1. **CUDA out of memory:**
+   - Reduce batch size to 1
+   - Reduce video_length to 8
+   - Use gradient accumulation
+
+2. **Model loading errors:**
+   - Check internet connection for downloading pretrained models
+   - Ensure diffusers version is compatible
+
+3. **Video loading errors:**
+   - Check video file formats are supported
+   - Ensure videos are not corrupted
+   - Verify video paths in captions.json match actual files
+
+4. **Slow training:**
+   - Enable xformers attention optimization
+   - Use mixed precision training
+   - Ensure using GPU, not CPU
+
+### Performance Monitoring:
+
+```bash
+# Monitor GPU usage during training
+nvidia-smi -l 1
+
+# Check training logs
+tail -f training.log
+```
+
+## Advanced Configuration
+
+For advanced users, you can modify the trainer class to:
+
+- Add custom loss functions
+- Implement different schedulers
+- Add validation loops
+- Use different base models
+- Implement custom augmentations
+
+## Model Architecture
+
+The project uses:
+- **Base Model**: Stable Video Diffusion (SVD)
+- **Text Encoder**: CLIP ViT-B/32
+- **UNet**: 3D UNet for temporal modeling
+- **Scheduler**: DDPM scheduler for denoising
+
+## Results
+
+After training, you should expect:
+- Videos generated from text prompts
+- Improved quality on your specific domain
+- Temporal consistency across frames
+- Better text-video alignment
+
+The model will be saved in the `checkpoints/final/` directory and can be used for inference.
